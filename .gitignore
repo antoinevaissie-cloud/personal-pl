@@ -1,0 +1,67 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+env/
+*.log
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Next.js
+.next/
+out/
+next-env.d.ts
+
+# Production
+build/
+dist/
+
+# Database
+data/
+*.db
+*.duckdb
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.coverage
+.pytest_cache/
+.hypothesis/
+
+# Playwright
+.playwright-mcp/
+
+# Claude
+.claude/
+
+# Temporary files
+*.tmp
+*.bak

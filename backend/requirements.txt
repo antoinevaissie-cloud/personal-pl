@@ -1,0 +1,18 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+duckdb==1.0.0          # you can leave 0.9.2 if you prefer; 1.0.0+ is nicer
+pandas==2.1.4
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-multipart==0.0.6
+pytest==7.4.3
+pytest-asyncio==0.21.1
+# authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+# logging
+structlog==24.1.0
+# optional tools:
+pyarrow==14.0.2        # only if you start writing Parquet
+ruff==0.4.8            # optional, for linting
+python-dotenv==1.0.1   # optional, for .env loading
