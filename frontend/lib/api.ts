@@ -1,97 +1,199 @@
-// frontend/lib/api.ts
-import AuthService from './auth'
+import { 
+  LoginRequest, 
+  LoginResponse, 
+  RegisterRequest, 
+  User,
+  UploadResponse,
+  BankType,
+  ImportCommitRequest,
+  ImportCommitResponse,
+  PLSummaryRequest,
+  PLSummaryResponse,
+  TransactionListRequest,
+  TransactionListResponse
+} from '@/types/api.types';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-export const api = {
-  baseURL: API_BASE,
-}
-
-// Helper to add auth headers
-function getAuthHeaders(): HeadersInit {
-  const token = AuthService.getToken()
-  return token
-    ? {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      }
-    : {
-        'Content-Type': 'application/json',
-      }
-}
-
-// Helper to handle API errors
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    if (response.status === 401) {
-      AuthService.removeToken()
-      window.location.href = '/login'
+class APIClient {
+  private baseURL: string;
+  
+  constructor() {
+    this.baseURL = API_URL;
+  }
+  
+  private getToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token');
     }
-    const error = await response.json().catch(() => ({ detail: 'Request failed' }))
-    throw new Error(error.detail || error.error || 'Request failed')
+    return null;
   }
-  return response.json()
-}
-
-export async function uploadBankCSV(params: {
-  bank: "BNP" | "Boursorama" | "Revolut"
-  period_month: string // YYYY-MM
-  file: File
-}) {
-  const token = AuthService.getToken()
-  if (!token) {
-    throw new Error('Authentication required')
+  
+  private setToken(token: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', token);
+    }
   }
-
-  const fd = new FormData()
-  fd.append("bank", params.bank)
-  fd.append("period_month", params.period_month)
-  fd.append("file", params.file)
   
-  const res = await fetch(`${API_BASE}/api/upload`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    body: fd,
-  })
-  
-  return handleResponse(res)
-}
-
-export async function importCommit(period_month: string) {
-  const res = await fetch(`${API_BASE}/api/import/commit`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ period_month }),
-  })
-  
-  return handleResponse(res)
-}
-
-export type PLSummaryResponse = {
-  summary: {
-    month: string
-    income: number
-    expense: number
-    net: number
-    delta_mom: number
-    savings_rate: number
+  public clearToken(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
   }
-  rows: {
-    category: string
-    net: number
-    subs: { name: string; net: number }[]
-  }[]
-  filters: { month: string; accounts: string[] }
+  
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const token = this.getToken();
+    
+    const headers: HeadersInit = {
+      ...options.headers,
+    };
+    
+    // Always add Authorization header if token exists, except for login/register
+    const isPublicEndpoint = endpoint === '/api/auth/login' || endpoint === '/api/auth/register';
+    if (token && !isPublicEndpoint) {
+      headers['Authorization'] = `Bearer ${token}`;
+      console.log('Adding auth header with token:', token.substring(0, 20) + '...');
+    }
+    
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    console.log('API Request:', {
+      endpoint,
+      method: options.method || 'GET',
+      hasToken: !!token,
+      isPublicEndpoint,
+      authHeader: headers['Authorization'] ? 'Present' : 'Missing',
+      headers
+    });
+    
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      ...options,
+      headers,
+    });
+    
+    if (!response.ok) {
+      if (response.status === 401) {
+        this.clearToken();
+        if (typeof window !== 'undefined' && !endpoint.includes('/auth/')) {
+          window.location.href = '/login';
+        }
+      }
+      
+      let errorMessage = 'An error occurred';
+      try {
+        const errorText = await response.text();
+        console.error('API Error response text:', errorText);
+        
+        // Try to parse as JSON
+        if (errorText) {
+          try {
+            const error = JSON.parse(errorText);
+            errorMessage = error.detail || error.message || error.error || 
+                          (Object.keys(error).length === 0 ? `Request failed (${response.status})` : JSON.stringify(error));
+          } catch {
+            // Not JSON, use the text directly
+            errorMessage = errorText;
+          }
+        } else {
+          errorMessage = `Request failed with status ${response.status}`;
+        }
+      } catch {
+        errorMessage = `Request failed with status ${response.status}`;
+      }
+      throw new Error(errorMessage);
+    }
+    
+    return response.json();
+  }
+  
+  // Authentication methods
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
+    const response = await this.request<LoginResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(credentials),
+    });
+    
+    console.log('Login response:', response);
+    
+    if (response.access_token) {
+      this.setToken(response.access_token);
+      console.log('Token saved to localStorage');
+      // Verify token was saved
+      const savedToken = this.getToken();
+      console.log('Token retrieved from localStorage:', savedToken ? 'Yes' : 'No');
+    }
+    
+    return response;
+  }
+  
+  async register(data: RegisterRequest): Promise<User> {
+    return this.request<User>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+  
+  async getCurrentUser(): Promise<User> {
+    const token = this.getToken();
+    console.log('getCurrentUser - Token exists:', !!token);
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    return this.request<User>('/api/auth/me');
+  }
+  
+  // Upload methods
+  async uploadCSV(
+    file: File,
+    bank: BankType,
+    periodMonth: string
+  ): Promise<UploadResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bank', bank);
+    formData.append('period_month', periodMonth);
+    
+    console.log('Uploading file:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      bank,
+      periodMonth
+    });
+    
+    return this.request<UploadResponse>('/api/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  }
+  
+  async commitImport(data: ImportCommitRequest): Promise<ImportCommitResponse> {
+    return this.request<ImportCommitResponse>('/api/import/commit', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+  
+  // P&L methods
+  async getPLSummary(params: PLSummaryRequest): Promise<PLSummaryResponse> {
+    return this.request<PLSummaryResponse>('/api/pl/summary', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
+  
+  // Transaction methods
+  async getTransactions(params: TransactionListRequest): Promise<TransactionListResponse> {
+    return this.request<TransactionListResponse>('/api/tx', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+  }
 }
 
-export async function getPLSummary(input: { month: string; accounts?: string[] }) {
-  const res = await fetch(`${API_BASE}/api/pl/summary`, {
-    method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ month: input.month, accounts: input.accounts ?? [] }),
-  })
-  
-  return handleResponse<PLSummaryResponse>(res)
-}
+export const api = new APIClient();

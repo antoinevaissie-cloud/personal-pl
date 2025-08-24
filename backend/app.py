@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from api import upload, pl, auth_router, import_commit
+from api import upload, pl, auth_router, import_commit, clear_data
 from config import settings
 from logger import logger, setup_logging
 from exceptions import PLException
@@ -113,3 +113,6 @@ app.include_router(auth_router.router)
 app.include_router(upload.router)
 app.include_router(import_commit.router)
 app.include_router(pl.router)
+if settings.debug:
+    # Only include clear data endpoint in debug mode
+    app.include_router(clear_data.router)

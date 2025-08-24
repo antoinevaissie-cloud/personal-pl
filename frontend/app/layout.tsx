@@ -1,32 +1,32 @@
-import './globals.css'
-import type { Metadata } from 'next'
-import { Sidebar } from '@/components/Sidebar'
-import ErrorBoundary from '@/components/ErrorBoundary'
-import { Toaster } from '@/components/ui/sonner'
+import type { Metadata } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import "./globals.css";
+
+const geistSans = Geist({
+  variable: "--font-geist-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
-  title: 'FinanceHub - Personal Dashboard',
-  description: 'Personal finance tracking and analysis platform',
-}
+  title: "Personal Finance - Business Accounting for Personal Use",
+  description: "Track and analyze your personal finances with business accounting principles",
+};
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode
-}) {
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html lang="en">
-      <body className="bg-white">
-        <ErrorBoundary>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 ml-[240px] bg-white">
-              {children}
-            </main>
-          </div>
-        </ErrorBoundary>
-        <Toaster richColors position="top-right" />
+      <body className="antialiased">
+        {children}
       </body>
     </html>
-  )
+  );
 }
